@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: urbix
+      POSTGRES_PASSWORD: urbix
+      POSTGRES_DB: urbix
+    ports:
+      - "5432:5432"
+    volumes:
+      - urbix_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U urbix -d urbix"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql+psycopg://urbix:urbix@db:5432/urbix
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      URBIX_ENV: docker
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  urbix_pg:

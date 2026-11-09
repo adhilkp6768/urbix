@@ -1,0 +1,36 @@
+databases:
+  - name: urbix-db
+    databaseName: urbix
+    user: urbix
+
+services:
+  - type: web
+    name: urbix-api
+    runtime: docker
+    dockerfilePath: ./infrastructure/docker/Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: urbix-db
+          property: connectionString
+      - key: URBIX_ENV
+        value: cloud
+      - key: URBIX_BOOTSTRAP_ON_START
+        value: "1"
+      - key: URBIX_REFRESH_HOURS
+        value: "12"
+      - key: CORS_ORIGINS
+        value: https://urbix-web.onrender.com
+
+  - type: web
+    name: urbix-web
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: ""
+      - key: API_URL
+        value: https://urbix-api.onrender.com

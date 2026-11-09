@@ -1,0 +1,128 @@
+"use client";
+
+import maplibregl, { GeoJSONSource } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { useEffect, useRef } from "react";
+
+type Feature = { geometry?: { type?: string; coordinates?: unknown }; properties?: Record<string, unknown> };
+type Collection = { type: "FeatureCollection"; features: Feature[]; center?: [number, number] | null };
+
+function numericValues(data: Collection) {
+  return data.features
+    .map((feature) => feature.properties?.value)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+}
+
+function applyLayer(map: maplibregl.Map, data: Collection, pitch: number) {
+  const source = map.getSource("urbix") as GeoJSONSource | undefined;
+  if (!source) return;
+  source.setData(data as GeoJSON.FeatureCollection);
+  const values = numericValues(data);
+  const min = values.length ? Math.min(...values) : 0;
+  const max = values.length ? Math.max(...values) : 1;
+  const mid = min + (max - min) / 2;
+  const fill = values.length
+    ? ["interpolate", ["linear"], ["coalesce", ["get", "value"], min], min, "#245c86", mid, "#6ad7ef", max, "#f0997f"]
+    : "#2a6f92";
+  map.setPaintProperty("urbix-fill", "fill-color", fill as maplibregl.ExpressionSpecification);
+  map.setPaintProperty("urbix-fill", "fill-opacity", values.length ? 0.62 : 0.38);
+  if (data.features.length) {
+    const bounds = new maplibregl.LngLatBounds();
+    const extend = (coordinates: unknown) => {
+      if (!Array.isArray(coordinates)) return;
+      if (typeof coordinates[0] === "number" && typeof coordinates[1] === "number") {
+        bounds.extend(coordinates as [number, number]);
+        return;
+      }
+      coordinates.forEach(extend);
+    };
+    data.features.forEach((feature) => extend(feature.geometry?.coordinates));
+    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 36, maxZoom: 12, duration: 400, pitch });
+  } else if (data.center && data.center[0] != null && data.center[1] != null) {
+    map.easeTo({ center: data.center, zoom: 10, duration: 400, pitch });
+  } else {
+    map.easeTo({ pitch });
+  }
+}
+
+export function UrbanMap({ data, pitch }: { data: Collection; pitch: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const dataRef = useRef(data);
+  const pitchRef = useRef(pitch);
+  dataRef.current = data;
+  pitchRef.current = pitch;
+
+  useEffect(() => {
+    if (!ref.current || mapRef.current) return;
+    const initial = dataRef.current;
+    const map = new maplibregl.Map({
+      container: ref.current,
+      style: "https://tiles.openfreemap.org/styles/dark",
+      center: initial.center || [-73.98, 40.73],
+      zoom: 10,
+      pitch: pitchRef.current,
+    });
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.on("load", () => {
+      map.addSource("urbix", { type: "geojson", data: dataRef.current as GeoJSON.FeatureCollection });
+      map.addLayer({
+        id: "urbix-fill",
+        type: "fill",
+        source: "urbix",
+        filter: ["match", ["geometry-type"], ["Polygon", "MultiPolygon"], true, false],
+        paint: { "fill-color": "#2a6f92", "fill-opacity": 0.45 },
+      });
+      map.addLayer({
+        id: "urbix-outline",
+        type: "line",
+        source: "urbix",
+        filter: ["match", ["geometry-type"], ["Polygon", "MultiPolygon"], true, false],
+        paint: { "line-color": "#d5f4fb", "line-width": 1.2 },
+      });
+      map.addLayer({
+        id: "urbix-line",
+        type: "line",
+        source: "urbix",
+        filter: ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false],
+        paint: { "line-color": "#6ad7ef", "line-width": 2.4 },
+      });
+      map.addLayer({
+        id: "urbix-point",
+        type: "circle",
+        source: "urbix",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: { "circle-radius": 4.5, "circle-color": "#e4c56a", "circle-stroke-width": 1, "circle-stroke-color": "#101826" },
+      });
+      map.on("click", "urbix-fill", (event) => {
+        const feature = event.features?.[0];
+        if (!feature) return;
+        const properties = feature.properties || {};
+        const value = properties.value == null || properties.value === "null" ? "Unavailable" : properties.value;
+        new maplibregl.Popup({ closeButton: false })
+          .setLngLat(event.lngLat)
+          .setHTML(`<strong>${properties.name || "Area"}</strong><br/>${value} ${properties.unit || ""}`)
+          .addTo(map);
+      });
+      applyLayer(map, dataRef.current, pitchRef.current);
+      map.resize();
+    });
+    const observer = new ResizeObserver(() => map.resize());
+    observer.observe(ref.current);
+    mapRef.current = map;
+    return () => {
+      observer.disconnect();
+      map.remove();
+      mapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded() || !map.getSource("urbix")) return;
+    applyLayer(map, data, pitch);
+  }, [data, pitch]);
+
+  return <div ref={ref} style={{ position: "absolute", inset: 0 }} />;
+}

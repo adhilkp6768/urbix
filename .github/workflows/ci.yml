@@ -1,0 +1,47 @@
+name: urbix
+on:
+  push:
+  pull_request:
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: urbix
+          POSTGRES_PASSWORD: urbix
+          POSTGRES_DB: urbix
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U urbix -d urbix"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r requirements/base.txt -r requirements/ml.txt -r requirements/dev.txt
+      - name: Test on SQLite
+        run: pytest
+      - name: PostGIS migration
+        env:
+          DATABASE_URL: postgresql+psycopg://urbix:urbix@localhost:5432/urbix
+          PYTHONPATH: backend:data-engine:ml-engine:ai-engine:database
+        run: python -c "from urbix_db.session import init_db, make_engine; engine=make_engine(); init_db(engine); print(engine.dialect.name)"
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+      - run: npm run typecheck

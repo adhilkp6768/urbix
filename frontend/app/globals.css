@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #101826;
+  color: #e9f3f8;
+  min-height: 100%;
+}
+
+body {
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  background:
+    radial-gradient(900px 420px at 12% -8%, rgba(106, 215, 239, 0.09), transparent 60%),
+    #101826;
+}
+
+::selection {
+  background: #245c6e;
+  color: #e9f3f8;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #38536c transparent;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(16, 24, 38, 0.82) !important;
+  color: #b7c9d8 !important;
+}
+
+.maplibregl-popup-content {
+  background: #1b2938;
+  color: #e9f3f8;
+  border: 1px solid #38536c;
+  border-radius: 8px;
+  box-shadow: none;
+  padding: 10px 12px;
+}
+
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #1b2938;
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #1b2938;
+}
+
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #1b2938;
+}
+
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #1b2938;
+}
