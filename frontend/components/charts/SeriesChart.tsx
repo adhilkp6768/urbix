@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export function SeriesChart({ points }: { points: { name: string; value: number | null }[] }) {
+export function SeriesChart({ points, color = "#1f6f8b" }: { points: { name: string; value: number | null }[]; color?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current) return;
@@ -11,15 +11,53 @@ export function SeriesChart({ points }: { points: { name: string; value: number 
     const onResize = () => chart?.resize();
     import("echarts").then((echarts) => {
       if (disposed || !ref.current) return;
-      const instance = echarts.init(ref.current);
+      const instance = echarts.init(ref.current, undefined, { renderer: "canvas" });
       chart = instance;
       instance.setOption({
         backgroundColor: "transparent",
-        grid: { left: 48, right: 12, top: 16, bottom: 28 },
-        tooltip: { trigger: "axis" },
-        xAxis: { type: "category", data: points.map((point) => point.name), axisLabel: { color: "#b7c9d8", fontSize: 10 }, axisLine: { lineStyle: { color: "#38536c" } } },
-        yAxis: { type: "value", axisLabel: { color: "#b7c9d8", fontSize: 10 }, splitLine: { lineStyle: { color: "#38536c" } } },
-        series: [{ type: "line", data: points.map((point) => point.value), showSymbol: false, lineStyle: { color: "#6ad7ef", width: 2 }, areaStyle: { color: "rgba(106,215,239,0.16)" } }],
+        grid: { left: 44, right: 12, top: 20, bottom: 32 },
+        tooltip: {
+          trigger: "axis",
+          backgroundColor: "rgba(255, 255, 255, 0.96)",
+          borderColor: "#c5d0da",
+          textStyle: { color: "#14202b", fontSize: 12 },
+        },
+        xAxis: {
+          type: "category",
+          data: points.map((point) => point.name),
+          axisLabel: { color: "#5c6e7d", fontSize: 10 },
+          axisLine: { lineStyle: { color: "#c5d0da" } },
+          axisTick: { show: false },
+        },
+        yAxis: {
+          type: "value",
+          axisLabel: { color: "#5c6e7d", fontSize: 10 },
+          splitLine: { lineStyle: { color: "rgba(197, 208, 218, 0.9)", type: "dashed" } },
+        },
+        series: [
+          {
+            type: "line",
+            data: points.map((point) => point.value),
+            showSymbol: points.length < 24,
+            symbolSize: 6,
+            smooth: 0.2,
+            lineStyle: { color, width: 2.5 },
+            itemStyle: { color },
+            areaStyle: {
+              color: {
+                type: "linear",
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color: `${color}33` },
+                  { offset: 1, color: `${color}05` },
+                ],
+              },
+            },
+          },
+        ],
       });
     });
     window.addEventListener("resize", onResize);
@@ -28,7 +66,7 @@ export function SeriesChart({ points }: { points: { name: string; value: number 
       window.removeEventListener("resize", onResize);
       chart?.dispose();
     };
-  }, [points]);
+  }, [points, color]);
   if (!points.length) return <p className="text-sm text-mist">No time series is available for this selection.</p>;
   return <div ref={ref} className="h-56 w-full" />;
 }

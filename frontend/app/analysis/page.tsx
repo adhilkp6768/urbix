@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useApi } from "@/lib/useApi";
 
 type Correlation = {
@@ -10,7 +11,8 @@ type Correlation = {
 };
 
 export default function Page() {
-  const state = useApi<Correlation>("/api/v1/analysis/correlations?city=nyc");
+  const city = useSearchParams().get("city") || "nyc";
+  const state = useApi<Correlation>(`/api/v1/analysis/correlations?city=${encodeURIComponent(city)}`);
   if (state.status === "loading") return <p className="p-6 text-sm text-mist">Computing the paired series</p>;
   if (state.status === "error") return <p className="p-6 text-sm text-bad">{state.error}</p>;
   const data = state.data!;

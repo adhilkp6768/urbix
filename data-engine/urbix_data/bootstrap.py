@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from urbix_data.pipeline import REFERENCE_SEQUENCE, run_connector, seed_reference_geography
+from urbix_data.pipeline import REFERENCE_SEQUENCE, WEATHER_CITIES, run_connector, seed_reference_geography
 from urbix_data.reference import reference_city_slugs
 from urbix_data.repository import upsert_catalog
 from urbix_db.session import init_db, make_engine, make_session_factory
@@ -22,7 +22,7 @@ def bootstrap(sequence: list[str] | None = None, weather_cities: list[str] | Non
         for code in sequence or REFERENCE_SEQUENCE:
             options = {}
             if code in {"open-meteo-weather", "open-meteo-air-quality"}:
-                options["cities"] = weather_cities or ["nyc"]
+                options["cities"] = weather_cities or WEATHER_CITIES
                 options["days"] = 21
             if code == "nyc-atr-counts":
                 options["max_rows"] = 8000
@@ -42,7 +42,7 @@ def main() -> None:
     parser.add_argument("--only", action="append", default=[], help="Run one connector code. Repeatable.")
     parser.add_argument("--expand-weather", action="store_true", help="Also request weather for expansion cities.")
     args = parser.parse_args()
-    cities = reference_city_slugs() if args.expand_weather else ["nyc"]
+    cities = reference_city_slugs() if args.expand_weather else WEATHER_CITIES
     bootstrap(args.only or None, cities)
 
 

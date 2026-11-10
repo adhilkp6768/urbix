@@ -22,10 +22,17 @@ function applyLayer(map: maplibregl.Map, data: Collection, pitch: number) {
   const max = values.length ? Math.max(...values) : 1;
   const mid = min + (max - min) / 2;
   const fill = values.length
-    ? ["interpolate", ["linear"], ["coalesce", ["get", "value"], min], min, "#245c86", mid, "#6ad7ef", max, "#f0997f"]
-    : "#2a6f92";
+    ? ["interpolate", ["linear"], ["coalesce", ["get", "value"], min], min, "#7eb6c9", mid, "#1f6f8b", max, "#c45c4a"]
+    : "#1f6f8b";
   map.setPaintProperty("urbix-fill", "fill-color", fill as maplibregl.ExpressionSpecification);
-  map.setPaintProperty("urbix-fill", "fill-opacity", values.length ? 0.62 : 0.38);
+  map.setPaintProperty("urbix-fill", "fill-opacity", values.length ? 0.58 : 0.34);
+  const scaled = (fallback: string) =>
+    (values.length
+      ? ["case", ["==", ["typeof", ["get", "value"]], "number"], ["interpolate", ["linear"], ["get", "value"], min, "#7eb6c9", mid, "#1f6f8b", max, "#c45c4a"], fallback]
+      : fallback) as maplibregl.ExpressionSpecification;
+  map.setPaintProperty("urbix-line", "line-color", scaled("#1f6f8b"));
+  map.setPaintProperty("urbix-point", "circle-color", scaled("#9a7b4f"));
+  map.setPaintProperty("urbix-point", "circle-radius", data.features.length > 1500 ? 3 : values.length ? 6 : 4.5);
   if (data.features.length) {
     const bounds = new maplibregl.LngLatBounds();
     const extend = (coordinates: unknown) => {
@@ -58,7 +65,7 @@ export function UrbanMap({ data, pitch }: { data: Collection; pitch: number }) {
     const initial = dataRef.current;
     const map = new maplibregl.Map({
       container: ref.current,
-      style: "https://tiles.openfreemap.org/styles/dark",
+      style: "https://tiles.openfreemap.org/styles/liberty",
       center: initial.center || [-73.98, 40.73],
       zoom: 10,
       pitch: pitchRef.current,
@@ -71,39 +78,46 @@ export function UrbanMap({ data, pitch }: { data: Collection; pitch: number }) {
         type: "fill",
         source: "urbix",
         filter: ["match", ["geometry-type"], ["Polygon", "MultiPolygon"], true, false],
-        paint: { "fill-color": "#2a6f92", "fill-opacity": 0.45 },
+        paint: { "fill-color": "#1f6f8b", "fill-opacity": 0.34 },
       });
       map.addLayer({
         id: "urbix-outline",
         type: "line",
         source: "urbix",
         filter: ["match", ["geometry-type"], ["Polygon", "MultiPolygon"], true, false],
-        paint: { "line-color": "#d5f4fb", "line-width": 1.2 },
+        paint: { "line-color": "#14202b", "line-width": 1 },
       });
       map.addLayer({
         id: "urbix-line",
         type: "line",
         source: "urbix",
         filter: ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false],
-        paint: { "line-color": "#6ad7ef", "line-width": 2.4 },
+        paint: { "line-color": "#1f6f8b", "line-width": 2.4 },
       });
       map.addLayer({
         id: "urbix-point",
         type: "circle",
         source: "urbix",
         filter: ["==", ["geometry-type"], "Point"],
-        paint: { "circle-radius": 4.5, "circle-color": "#e4c56a", "circle-stroke-width": 1, "circle-stroke-color": "#101826" },
+        paint: { "circle-radius": 4.5, "circle-color": "#9a7b4f", "circle-stroke-width": 1, "circle-stroke-color": "#ffffff" },
       });
-      map.on("click", "urbix-fill", (event) => {
-        const feature = event.features?.[0];
+      const layers = ["urbix-point", "urbix-line", "urbix-fill"];
+      map.on("click", (event) => {
+        const feature = map.queryRenderedFeatures(event.point, { layers })[0];
         if (!feature) return;
         const properties = feature.properties || {};
-        const value = properties.value == null || properties.value === "null" ? "Unavailable" : properties.value;
-        new maplibregl.Popup({ closeButton: false })
-          .setLngLat(event.lngLat)
-          .setHTML(`<strong>${properties.name || "Area"}</strong><br/>${value} ${properties.unit || ""}`)
-          .addTo(map);
+        const missing = properties.value == null || properties.value === "null";
+        const value = missing ? "" : `<br/>${Number(properties.value).toLocaleString()} ${properties.unit || ""}`;
+        const when = properties.period || properties.observed_at;
+        const holder = document.createElement("div");
+        holder.innerHTML = `<strong></strong>${value}${missing && properties.unit ? "<br/>Unavailable" : ""}${when ? `<br/><small>${String(when).slice(0, 16).replace("T", " ")}</small>` : ""}`;
+        (holder.querySelector("strong") as HTMLElement).textContent = String(properties.name || "Area");
+        new maplibregl.Popup({ closeButton: false }).setLngLat(event.lngLat).setDOMContent(holder).addTo(map);
       });
+      for (const id of layers) {
+        map.on("mouseenter", id, () => (map.getCanvas().style.cursor = "pointer"));
+        map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
+      }
       applyLayer(map, dataRef.current, pitchRef.current);
       map.resize();
     });

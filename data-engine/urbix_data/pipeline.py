@@ -1124,6 +1124,11 @@ CONNECTORS = {
     "osm-city-boundary": connect_city_boundary,
 }
 
+from urbix_data.cities import CITY_CONNECTORS, CITY_CURRENT_SEQUENCE, CITY_SEQUENCE, OTHER_CITIES  # noqa: E402
+
+CONNECTORS.update(CITY_CONNECTORS)
+WEATHER_CITIES = ["nyc", *OTHER_CITIES]
+
 REFERENCE_SEQUENCE = [
     "nyc-borough-boundaries",
     "nyc-community-districts",
@@ -1143,4 +1148,5 @@ REFERENCE_SEQUENCE = [
     "nyc-pluto-aggregates",
     "nyc-shelter-buildings",
     "osm-major-roads",
+    *CITY_SEQUENCE,
 ]

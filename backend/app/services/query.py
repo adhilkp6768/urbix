@@ -36,6 +36,10 @@ from urbix_db.models import (
 )
 from urbix_ml.metrics import pearson
 
+from app.services import city_domains
+
+NYC_PROFILE = "nyc"
+
 NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 
@@ -117,17 +121,70 @@ def _feature(geo: GeoUnit, value=None, extra: dict | None = None) -> dict | None
     return {"type": "Feature", "geometry": geometry, "properties": properties}
 
 
+def _city_coverage(session: Session) -> dict[str, dict]:
+    """Count connected domains per city so the UI can separate deep extracts from weather-only stubs."""
+    domains: dict[str, set[str]] = defaultdict(set)
+    for slug, in session.query(TrafficObservation.city_slug).filter(TrafficObservation.city_slug.isnot(None)).distinct():
+        domains[slug].add("traffic")
+    for slug, in session.query(CrimeAggregate.city_slug).filter(CrimeAggregate.city_slug.isnot(None)).distinct():
+        domains[slug].add("crime")
+    for slug, in session.query(CrimeIncident.city_slug).filter(CrimeIncident.city_slug.isnot(None)).distinct():
+        domains[slug].add("crime")
+    for slug, in session.query(PopulationObservation.city_slug).filter(PopulationObservation.city_slug.isnot(None)).distinct():
+        domains[slug].add("population")
+    for slug, in session.query(WasteObservation.city_slug).filter(WasteObservation.city_slug.isnot(None)).distinct():
+        domains[slug].add("waste")
+    for slug, in session.query(TransitStop.city_slug).filter(TransitStop.city_slug.isnot(None)).distinct():
+        domains[slug].add("transport")
+    for slug, in (
+        session.query(InfrastructureFeature.city_slug)
+        .filter(InfrastructureFeature.city_slug.isnot(None), InfrastructureFeature.feature_type == "major_road")
+        .distinct()
+    ):
+        domains[slug].add("infrastructure")
+    for slug, in (
+        session.query(EnvironmentalObservation.city_slug)
+        .filter(EnvironmentalObservation.city_slug.isnot(None), EnvironmentalObservation.dataset_code != "open-meteo-air-quality")
+        .distinct()
+    ):
+        domains[slug].add("environment")
+    weather_only = {
+        slug
+        for (slug,) in session.query(WeatherObservation.city_slug).filter(WeatherObservation.city_slug.isnot(None)).distinct()
+    }
+    coverage = {}
+    for slug in set(domains) | weather_only:
+        connected = sorted(domains.get(slug, set()))
+        if "environment" not in connected and slug in weather_only:
+            # Modelled Open-Meteo weather/air alone counts as a thin environment stub.
+            pass
+        depth = "deep" if len(connected) >= 4 else ("broad" if len(connected) >= 2 else ("thin" if connected or slug in weather_only else "reference"))
+        if not connected and slug in weather_only:
+            depth = "weather"
+        coverage[slug] = {"domains": connected, "domain_count": len(connected), "depth": depth, "has_weather": slug in weather_only}
+    return coverage
+
+
 def world(session: Session) -> dict:
     cities = session.query(GeoUnit).filter(GeoUnit.level_code == "city").all()
     countries = session.query(GeoUnit).filter(GeoUnit.level_code == "country").all()
     integrated = [city for city in cities if city.integration_status in {"partial", "integrated"}]
+    coverage = _city_coverage(session)
+    serialized = []
+    for city in cities:
+        item = serialize_geo(city)
+        info = coverage.get(city.slug) or {"domains": [], "domain_count": 0, "depth": "reference", "has_weather": False}
+        item.update(info)
+        serialized.append(item)
+    deep = sum(1 for item in serialized if item.get("depth") in {"deep", "broad"})
     return {
         "availability": "partial" if integrated else "unavailable",
         "countries": len(countries),
         "cities_referenced": len(cities),
         "cities_with_data": len(integrated),
-        "note": "Global figures count integrated cities only. Cities without a successful ingest are listed as reference geography and contribute no indicators.",
-        "cities": [serialize_geo(city) for city in cities],
+        "cities_with_broad_extracts": deep,
+        "note": "Global figures count integrated cities only. Deep extracts cover several official domains; weather-only cities still show modelled Open-Meteo readings and stay blank elsewhere.",
+        "cities": serialized,
     }
 
 
@@ -184,6 +241,8 @@ def search_geo(session: Session, text: str) -> list[dict]:
 
 
 def traffic_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.traffic(session, slug)
     speeds = session.query(TrafficObservation).filter(TrafficObservation.city_slug == slug, TrafficObservation.dataset_code == "nyc-traffic-speeds").all()
     samples = session.query(TrafficObservation).filter(TrafficObservation.city_slug == slug, TrafficObservation.dataset_code == "nyc-atr-counts").all()
     crashes = session.query(TrafficObservation).filter(TrafficObservation.city_slug == slug, TrafficObservation.dataset_code == "nypd-crashes").all()
@@ -230,6 +289,8 @@ def traffic_analytics(session: Session, slug: str) -> dict:
 
 
 def environment_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.environment(session, slug)
     official = (
         session.query(EnvironmentalObservation)
         .filter(EnvironmentalObservation.city_slug == slug, EnvironmentalObservation.dataset_code == "nyc-air-quality", EnvironmentalObservation.parameter == "Fine particles (PM 2.5)", EnvironmentalObservation.value.isnot(None))
@@ -277,6 +338,8 @@ def environment_analytics(session: Session, slug: str) -> dict:
 
 
 def crime_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.crime(session, slug)
     aggregates = session.query(CrimeAggregate).filter(CrimeAggregate.city_slug == slug).all()
     sample_count = session.query(func.count(CrimeIncident.id)).filter(CrimeIncident.city_slug == slug).scalar() or 0
     by_category: dict[str, int] = defaultdict(int)
@@ -310,6 +373,8 @@ def crime_analytics(session: Session, slug: str) -> dict:
 
 
 def population_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.population(session, slug)
     rows = session.query(PopulationObservation).filter(PopulationObservation.city_slug == slug).all()
     acs = [row for row in rows if row.metric_kind == "acs5_estimate"]
     decennial = [row for row in rows if row.metric_kind == "decennial_count" and row.vintage_year == 2010]
@@ -339,6 +404,8 @@ def population_analytics(session: Session, slug: str) -> dict:
 
 
 def waste_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.waste(session, slug)
     rows = session.query(WasteObservation).filter(WasteObservation.city_slug == slug).all()
     latest = max((row.period_start for row in rows if row.period_start), default=None)
     current = [row for row in rows if latest and row.period_start == latest]
@@ -365,6 +432,8 @@ def waste_analytics(session: Session, slug: str) -> dict:
 
 
 def transport_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.transport(session, slug)
     stops = session.query(func.count(TransitStop.id)).filter(TransitStop.city_slug == slug).scalar() or 0
     riders = session.query(TransitRidership).filter(TransitRidership.city_slug == slug).all()
     total = sum(row.riders or 0 for row in riders) if riders else None
@@ -401,6 +470,8 @@ def transport_analytics(session: Session, slug: str) -> dict:
 
 
 def infrastructure_analytics(session: Session, slug: str) -> dict:
+    if slug != NYC_PROFILE:
+        return city_domains.infrastructure(session, slug)
     rows = session.query(InfrastructureFeature).filter(InfrastructureFeature.city_slug == slug).all()
     lots = [row for row in rows if row.feature_type == "pluto_lot_aggregate"]
     shelters = [row for row in rows if row.feature_type == "shelter_buildings"]
@@ -444,7 +515,10 @@ def map_layer(session: Session, slug: str, layer: str) -> dict:
         return {"type": "FeatureCollection", "features": [], "availability": "unavailable", "reason": "Unknown city."}
     features = []
     note = ""
-    if layer == "admin":
+    generic = city_domains.map_layer(session, city, layer, _feature) if slug != NYC_PROFILE else None
+    if generic is not None:
+        features, note = generic
+    elif layer == "admin":
         rows = [row for row in _descendants(session, city) if (row.properties or {}).get("kind") in {"borough", "community_district"}]
         features = [feature for feature in (_feature(row) for row in rows) if feature]
         if features:
@@ -536,15 +610,15 @@ def map_layer(session: Session, slug: str, layer: str) -> dict:
         note = "OSM motorway and trunk extract. © OpenStreetMap contributors." if features else f"No major-road lines are stored for {city.name}."
     else:
         note = "Unknown layer."
-    if layer == "traffic" and not features:
+    if layer == "traffic" and not features and slug == NYC_PROFILE:
         note = f"No speed links are stored for {city.name}. The DOT snapshot is a New York extract."
     center = [city.longitude, city.latitude] if city.longitude is not None and city.latitude is not None else None
     return {"type": "FeatureCollection", "features": features, "layer": layer, "note": note, "count": len(features), "center": center}
 
 
 def correlations(session: Session, slug: str) -> dict:
-    weather = session.query(WeatherObservation).filter(WeatherObservation.parameter == "temperature_2m", WeatherObservation.value.isnot(None)).all()
-    air = session.query(EnvironmentalObservation).filter(EnvironmentalObservation.dataset_code == "open-meteo-air-quality", EnvironmentalObservation.parameter == "pm2_5", EnvironmentalObservation.value.isnot(None)).all()
+    weather = session.query(WeatherObservation).filter(WeatherObservation.city_slug == slug, WeatherObservation.parameter == "temperature_2m", WeatherObservation.value.isnot(None)).all()
+    air = session.query(EnvironmentalObservation).filter(EnvironmentalObservation.city_slug == slug, EnvironmentalObservation.dataset_code == "open-meteo-air-quality", EnvironmentalObservation.parameter == "pm2_5", EnvironmentalObservation.value.isnot(None)).all()
     air_index = {(row.geo_unit_id, row.observed_at): row.value for row in air}
     xs, ys = [], []
     for row in weather:
@@ -736,7 +810,7 @@ def compare_geographies(session: Session, left_slug: str, right_slug: str) -> di
         "right": serialize_geo(right),
         "metrics": metrics,
         "area_km2": {"left": _round(left.area_km2, 2), "right": _round(right.area_km2, 2), "dataset": "boundary geometry"},
-        "note": "Temperature and PM2.5 are the latest stored Open-Meteo grid hours. They are not citywide averages. Traffic, waste, and safety extracts stay New York only.",
+        "note": "Temperature and PM2.5 are the latest stored Open-Meteo grid hours. They are not citywide averages. Domain figures use different official sources per city, so compare them in Explore with their method notes.",
     }
 
 

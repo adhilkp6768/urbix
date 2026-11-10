@@ -29,19 +29,19 @@ function CompareInner() {
       >
         <label className="text-sm text-mist">
           Left
-          <select value={left} onChange={(event) => setLeft(event.target.value)} className="mt-1 block border border-line bg-ink px-2 py-1 text-paper">
+          <select value={left} onChange={(event) => setLeft(event.target.value)} className="mt-1 block rounded-lg border border-line bg-panel px-2 py-1 text-paper">
             {cities.map((city) => <option key={city.slug} value={city.slug}>{city.name}</option>)}
             {!cities.some((city) => city.slug === left) && <option value={left}>{left}</option>}
           </select>
         </label>
         <label className="text-sm text-mist">
           Right
-          <select value={right} onChange={(event) => setRight(event.target.value)} className="mt-1 block border border-line bg-ink px-2 py-1 text-paper">
+          <select value={right} onChange={(event) => setRight(event.target.value)} className="mt-1 block rounded-lg border border-line bg-panel px-2 py-1 text-paper">
             {cities.map((city) => <option key={city.slug} value={city.slug}>{city.name}</option>)}
             {!cities.some((city) => city.slug === right) && <option value={right}>{right}</option>}
           </select>
         </label>
-        <button type="submit" className="bg-cyan px-3 py-1.5 text-sm font-medium text-ink">Compare</button>
+        <button type="submit" className="ui-btn-primary">Compare</button>
       </form>
       {state.status === "loading" && <p className="text-sm text-mist">Comparing</p>}
       {state.status === "error" && <p className="text-sm text-bad">{state.error}</p>}

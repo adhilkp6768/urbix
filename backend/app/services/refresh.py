@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from datetime import datetime, timezone
 
-from urbix_data.pipeline import REFERENCE_SEQUENCE, run_connector
+from urbix_data.pipeline import CITY_CURRENT_SEQUENCE, REFERENCE_SEQUENCE, WEATHER_CITIES, run_connector
 
 CURRENT_SEQUENCE = [
     "nyc-traffic-speeds",
@@ -16,6 +16,7 @@ CURRENT_SEQUENCE = [
     "open-meteo-air-quality",
     "mta-subway-ridership",
     "nyc-shelter-buildings",
+    *CITY_CURRENT_SEQUENCE,
 ]
 
 _LOCK = threading.Lock()
@@ -144,7 +145,7 @@ def _sync_postgis(session_factory) -> None:
 
 def _options(code: str, scope: str) -> dict:
     if code in {"open-meteo-weather", "open-meteo-air-quality"}:
-        return {"cities": ["nyc"], "days": 21 if scope == "full" else 7}
+        return {"cities": WEATHER_CITIES, "days": 21 if scope == "full" else 7}
     if code == "nyc-atr-counts":
         return {"max_rows": 8000}
     return {}

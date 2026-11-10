@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import { depthLabel } from "@/lib/tone";
 
-export type CityChip = { slug: string; name: string; integration_status?: string };
+export type CityChip = { slug: string; name: string; integration_status?: string; depth?: string; domain_count?: number };
 
 type Freshness = {
   refresh: { running: boolean; scope: string | null; started_at: string | null; finished_at: string | null; steps: { dataset_code: string; status: string; message?: string | null; rows_written?: number | null }[] };
@@ -33,10 +34,10 @@ export function useMobile() {
 }
 
 const TABS = [
-  { href: "/m", label: "Pulse" },
-  { href: "/m/map", label: "Map" },
-  { href: "/m/explore", label: "Explore" },
-  { href: "/m/ask", label: "Ask" },
+  { href: "/m", label: "Pulse", icon: "●" },
+  { href: "/m/map", label: "Map", icon: "◎" },
+  { href: "/m/explore", label: "Explore", icon: "▦" },
+  { href: "/m/ask", label: "Ask", icon: "?" },
 ];
 
 export function AppFrame({ children }: { children: React.ReactNode }) {
@@ -52,9 +53,16 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const saved = window.localStorage.getItem("urbix-city");
+    if (saved) setCityState(saved);
+  }, []);
+
+  useEffect(() => {
     apiGet<{ cities: CityChip[] }>("/api/v1/geography/world")
       .then((data) => {
-        const loaded = (data.cities || []).filter((item) => item.integration_status === "partial" || item.integration_status === "integrated");
+        const loaded = (data.cities || [])
+          .filter((item) => item.integration_status === "partial" || item.integration_status === "integrated" || (item.domain_count || 0) > 0 || item.depth === "weather")
+          .sort((a, b) => (b.domain_count || 0) - (a.domain_count || 0) || a.name.localeCompare(b.name));
         if (loaded.length) {
           setCities(loaded);
           setCityState((current) => (loaded.some((item) => item.slug === current) ? current : loaded[0].slug));
@@ -104,19 +112,39 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     },
   }), [city, cities, tick, freshness, refreshError]);
 
+  const selected = cities.find((item) => item.slug === city);
+
   return (
     <MobileContext.Provider value={value}>
       <div className="fixed inset-0 flex flex-col bg-ink text-paper">
+        <div
+          className="flex items-center justify-between gap-3 border-b border-line bg-shell/95 px-4 backdrop-blur"
+          style={{ paddingTop: "max(0.65rem, env(safe-area-inset-top))" }}
+        >
+          <div className="min-w-0 py-2">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-cyan">URBIX</p>
+            <p className="truncate font-display text-sm font-semibold">{selected?.name || "City"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {selected?.depth && <span className="hidden rounded-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-mist xs:inline">{depthLabel(selected.depth)}</span>}
+            <Link href="/" className="rounded-full border border-line px-3 py-1.5 text-[11px] text-mist">Desktop</Link>
+          </div>
+        </div>
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
         <nav
-          className="grid grid-cols-4 border-t border-line bg-shell"
+          className="grid grid-cols-4 border-t border-line bg-shell/95 backdrop-blur"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {TABS.map((tab) => {
             const active = tab.href === "/m" ? pathname === "/m" : pathname.startsWith(tab.href);
             return (
-              <Link key={tab.href} href={tab.href} className={`py-3 text-center text-[11px] uppercase tracking-[0.14em] ${active ? "text-cyan" : "text-mist"}`}>
-                {tab.label}
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`flex flex-col items-center gap-1 py-2.5 text-center transition ${active ? "text-cyan" : "text-mist"}`}
+              >
+                <span className={`grid h-7 w-7 place-items-center rounded-full text-xs ${active ? "bg-cyan/15" : "bg-transparent"}`}>{tab.icon}</span>
+                <span className="text-[10px] uppercase tracking-[0.14em]">{tab.label}</span>
               </Link>
             );
           })}

@@ -13,6 +13,27 @@ def test_empty_traffic_is_unavailable_rather_than_zero():
     assert all(item["value"] is None for item in body["kpis"])
 
 
+def test_other_city_without_rows_reports_reasons_not_zero():
+    from app.main import SessionLocal
+    from urbix_data.pipeline import seed_reference_geography
+
+    session = SessionLocal()
+    try:
+        seed_reference_geography(session)
+        session.commit()
+    finally:
+        session.close()
+    client = TestClient(app)
+    for path in ("/api/v1/waste/analytics", "/api/v1/crime/analytics", "/api/v1/traffic/trends"):
+        body = client.get(f"{path}?city=berlin").json()
+        assert body["availability"] == "unavailable"
+        assert body["reason"]
+        assert body["kpis"] == []
+    layer = client.get("/api/v1/maps/geojson?city=berlin&layer=traffic").json()
+    assert layer["features"] == []
+    assert "not connected" in layer["note"]
+
+
 def test_unknown_city_is_not_found():
     client = TestClient(app)
     response = client.get("/api/v1/cities/not-a-city/overview")

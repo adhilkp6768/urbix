@@ -29,7 +29,7 @@ export default function Page() {
       {(state.data?.results || []).map((code) => (
         <div key={code} className="flex items-center justify-between border border-line bg-panel px-3 py-2 text-sm">
           <span className="font-mono text-xs">{code}</span>
-          <button type="button" onClick={() => run(code)} disabled={running !== null} className="bg-cyan px-3 py-1 text-xs font-medium text-ink disabled:opacity-50">{running === code ? "Running" : "Run"}</button>
+          <button type="button" onClick={() => run(code)} disabled={running !== null} className="ui-btn-primary px-3 py-1 text-xs disabled:opacity-50">{running === code ? "Running" : "Run"}</button>
         </div>
       ))}
     </div>

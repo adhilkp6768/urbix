@@ -1,24 +1,32 @@
 export function domainAccent(name: string) {
   const key = name.toLowerCase();
-  if (key.includes("traffic")) return "#6ad7ef";
-  if (key.includes("environment") || key.includes("air")) return "#7dcea0";
-  if (key.includes("crime") || key.includes("safety")) return "#f0997f";
-  if (key.includes("population")) return "#c4b5fd";
-  if (key.includes("waste")) return "#e4c56a";
-  if (key.includes("transport")) return "#7eb6ff";
-  if (key.includes("infrastructure")) return "#8fd0c4";
-  return "#6ad7ef";
+  if (key.includes("traffic")) return "#1f6f8b";
+  if (key.includes("environment") || key.includes("air")) return "#2f8f6b";
+  if (key.includes("crime") || key.includes("safety")) return "#c45c4a";
+  if (key.includes("population")) return "#9a7b4f";
+  if (key.includes("waste")) return "#b8862a";
+  if (key.includes("transport")) return "#3a7ca5";
+  if (key.includes("infrastructure")) return "#4d7c8a";
+  return "#1f6f8b";
 }
 
 export function statusTone(status: string) {
-  if (status === "available" || status === "integrated" || status === "succeeded" || status === "ok") {
-    return "border-good/40 bg-good/10 text-good";
+  if (status === "available" || status === "integrated" || status === "succeeded" || status === "ok" || status === "deep" || status === "trained") {
+    return "border-good/35 bg-good/10 text-good";
   }
-  if (status === "partial" || status === "running") {
-    return "border-warn/40 bg-warn/10 text-warn";
+  if (status === "partial" || status === "running" || status === "broad" || status === "weather" || status === "thin") {
+    return "border-warn/35 bg-warn/10 text-warn";
   }
-  if (status === "failed" || status === "error") {
-    return "border-bad/40 bg-bad/10 text-bad";
+  if (status === "failed" || status === "error" || status === "unavailable") {
+    return "border-bad/35 bg-bad/10 text-bad";
   }
-  return "border-line bg-white/5 text-mist";
+  return "border-line bg-raised text-mist";
+}
+
+export function depthLabel(depth?: string) {
+  if (depth === "deep") return "Deep extract";
+  if (depth === "broad") return "Multi-domain";
+  if (depth === "thin") return "Limited extract";
+  if (depth === "weather") return "Weather only";
+  return "Reference";
 }

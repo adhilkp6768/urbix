@@ -51,7 +51,7 @@ export default function AskPage() {
         }}
       >
         <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about this city" className="min-w-0 flex-1 rounded-full border border-line bg-shell px-4 py-2 text-sm outline-none" />
-        <button type="submit" disabled={busy} className="rounded-full bg-cyan px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+        <button type="submit" disabled={busy} className="ui-btn-primary disabled:opacity-50">
           {busy ? "…" : "Ask"}
         </button>
       </form>

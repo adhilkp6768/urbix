@@ -49,7 +49,7 @@ def request_json(url: str, *, params: dict | None = None, data: bytes | None = N
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             last_error = HttpError(url, exc.code, body)
-            if exc.code not in {429, 500, 503}:
+            if exc.code not in {429, 500, 502, 503, 504}:
                 raise last_error from exc
         except urllib.error.URLError as exc:
             last_error = HttpError(url, None, str(exc.reason))
@@ -59,8 +59,19 @@ def request_json(url: str, *, params: dict | None = None, data: bytes | None = N
 
 def request_bytes(url: str, timeout: int = 120) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "URBIX/0.1 (urban-intelligence research)"})
-    with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as response:
-        return response.read()
+    last_error = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            last_error = HttpError(url, exc.code, exc.read().decode("utf-8", errors="replace"))
+            if exc.code not in {429, 500, 502, 503, 504}:
+                raise last_error from exc
+        except urllib.error.URLError as exc:
+            last_error = HttpError(url, None, str(exc.reason))
+        time.sleep(2 * (attempt + 1))
+    raise last_error
 
 
 class SodaClient:

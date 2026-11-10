@@ -3,59 +3,129 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --ink: #e7edf2;
+  --shell: #f4f7fa;
+  --panel: #ffffff;
+  --raised: #eef3f7;
+  --line: #c5d0da;
+  --mist: #5c6e7d;
+  --paper: #14202b;
+  --accent: #1f6f8b;
+  --sand: #9a7b4f;
+  --good: #2f8f6b;
+  --warn: #b8862a;
+  --bad: #c45c4a;
 }
 
 html,
 body {
-  background: #101826;
-  color: #e9f3f8;
+  background: var(--ink);
+  color: var(--paper);
   min-height: 100%;
 }
 
 body {
-  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
   background:
-    radial-gradient(900px 420px at 12% -8%, rgba(106, 215, 239, 0.09), transparent 60%),
-    #101826;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(231, 237, 242, 0.92)),
+    repeating-linear-gradient(
+      -12deg,
+      transparent,
+      transparent 11px,
+      rgba(31, 111, 139, 0.035) 11px,
+      rgba(31, 111, 139, 0.035) 12px
+    ),
+    radial-gradient(900px 480px at 12% -10%, rgba(31, 111, 139, 0.12), transparent 55%),
+    radial-gradient(760px 420px at 100% 0%, rgba(154, 123, 79, 0.08), transparent 50%),
+    #e7edf2;
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Space Grotesk", "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 ::selection {
-  background: #245c6e;
-  color: #e9f3f8;
+  background: rgba(31, 111, 139, 0.22);
+  color: #14202b;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #38536c transparent;
+  scrollbar-color: #c5d0da transparent;
+}
+
+@layer components {
+  .ui-card {
+    @apply rounded-2xl border border-line bg-panel shadow-soft;
+  }
+
+  .ui-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-shell px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-mist;
+  }
+
+  .ui-chip-active {
+    @apply border-cyan/40 bg-cyan/10 text-cyan;
+  }
+
+  .ui-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition;
+  }
+
+  .ui-btn-primary {
+    @apply ui-btn bg-cyan text-white hover:brightness-110 active:scale-[0.98];
+  }
+
+  .ui-btn-ghost {
+    @apply ui-btn border border-line bg-panel text-paper hover:border-cyan/40 hover:bg-raised;
+  }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm text-paper outline-none placeholder:text-mist/70 focus:border-cyan;
+  }
 }
 
 .maplibregl-ctrl-attrib {
-  background: rgba(16, 24, 38, 0.82) !important;
-  color: #b7c9d8 !important;
+  background: rgba(244, 247, 250, 0.92) !important;
+  color: #5c6e7d !important;
+}
+
+.maplibregl-ctrl-group {
+  background: #ffffff !important;
+  border: 1px solid #c5d0da !important;
+  box-shadow: 0 8px 20px rgba(20, 32, 43, 0.08) !important;
+}
+
+.maplibregl-ctrl button {
+  background-color: #ffffff !important;
 }
 
 .maplibregl-popup-content {
-  background: #1b2938;
-  color: #e9f3f8;
-  border: 1px solid #38536c;
-  border-radius: 8px;
-  box-shadow: none;
+  background: #ffffff;
+  color: #14202b;
+  border: 1px solid #c5d0da;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(20, 32, 43, 0.12);
   padding: 10px 12px;
 }
 
 .maplibregl-popup-anchor-top .maplibregl-popup-tip {
-  border-bottom-color: #1b2938;
+  border-bottom-color: #ffffff;
 }
 
 .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-  border-top-color: #1b2938;
+  border-top-color: #ffffff;
 }
 
 .maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: #1b2938;
+  border-right-color: #ffffff;
 }
 
 .maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: #1b2938;
+  border-left-color: #ffffff;
 }
